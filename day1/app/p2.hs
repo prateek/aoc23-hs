@@ -57,44 +57,42 @@ firstNumString line stringNums =
 --
 
 finalFirst line =
-  let helper Nothing Nothing = Nothing
-      helper a Nothing = a
-      helper Nothing b = b
-      helper a@(Just (a1, a2)) b@(Just (b1, b2)) =
-        if a2 < b2
-        then a
-        else b
-  in helper strNum regNum
+  helper strNum regNum
   where
   strNum = firstNumString line (zip numStrings numValues)
   regNum = firstNum line
+  helper Nothing Nothing = Nothing
+  helper a Nothing = a
+  helper Nothing b = b
+  helper a@(Just (a1, a2)) b@(Just (b1, b2)) =
+    if a2 < b2
+    then a
+    else b
 
 -- | find the last numeric/string number in the line
 --
 -- Examples
 --
--- >>> finalSecond "1one"
--- Just (1,3)
+-- >>> finalSecond "seven2"
+-- Just (2,5)
 --
--- >>> finalSecond "aone3two"
--- Just (2,7)
---
--- >>> finalSecond "sofone1two"
--- Just (2,9)
---
+-- >>> finalSecond "4nineeightseven2"
+-- Just (2,15)
 
 finalSecond line =
-  case p of
+  case helper strNum regNum of
     Nothing -> Nothing
-    Just (num,offset) -> Just (num, (length line) - 1 - offset)
+    Just (num, offset) -> Just (num, (length line) - 1 - offset)
   where
-    p = firstNumString (reverse line) (zip (map reverse numStrings) numValues)
-
--- main :: IO ()
--- main = do
---   print (firstNumStringHelper "soneomeoneone1" ("one",1) 0)
---   print (finalFirst "a1twoone")
---   print (finalSecond "atwoone")
+  strNum = firstNumString (reverse line) (zip (map reverse numStrings) numValues)
+  regNum = firstNum (reverse line)
+  helper Nothing Nothing = Nothing
+  helper a Nothing = a
+  helper Nothing b = b
+  helper a@(Just (a1, a2)) b@(Just (b1, b2)) =
+    if a2 < b2
+    then a
+    else b
 
 processLine :: String -> Int
 processLine line = 10 * a + b
