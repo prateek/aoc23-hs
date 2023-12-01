@@ -71,6 +71,9 @@ finalFirst line =
 --
 -- >>> finalSecond "4nineeightseven2"
 -- (2,15)
+--
+-- >>> finalSecond "4nineeight2seven"
+-- (7,11)
 
 finalSecond line =
   let (num, offset) = List.minimumBy (Ord.comparing snd) offsets in
