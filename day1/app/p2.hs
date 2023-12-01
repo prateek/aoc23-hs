@@ -26,79 +26,63 @@ numStrings = [ "one", "two", "three", "four", "five", "six", "seven", "eight", "
 numValues :: [Int]
 numValues = [1..9]
 
-firstNumStringHelper :: String -> (String,Int) -> Int -> Maybe (Int, Int)
--- find the first `numString` in `line` and return the (num,index of numString in line)
+data OffsetT = OffsetT { idx :: Int, strValue :: String, numValue :: Int }
+
+-- find the first `numString` in `line` and return the (offset, string, numerical value)
+firstNumStringHelper :: String -> (String,Int) -> Int -> Maybe OffsetT
 firstNumStringHelper "" _ _ = Nothing
 firstNumStringHelper line (numString, num) offset =
   if numString == (take (length numString) line)
-  then Just (num, offset)
+  then Just OffsetT {idx=offset, strValue = numString, numValue = num}
   else firstNumStringHelper (tail line) (numString, num) (offset + 1)
 
-firstNumString :: String -> [(String,Int)] -> Maybe (Int, Int)
+firstNumString :: String -> [(String,Int)] -> [OffsetT]
 firstNumString line stringNums =
-  case strOffsets of
-    [] -> Nothing
-    _ -> Just (List.minimumBy (Ord.comparing snd) strOffsets)
-  where
-    strOffsets = Maybe.mapMaybe (\p -> firstNumStringHelper line p 0) stringNums
+     Maybe.mapMaybe (\p -> firstNumStringHelper line p 0) stringNums
 
 -- | find the first numeric/string number in the line
 --
 -- Examples
 --
 -- >>> finalFirst "a1twoone"
--- Just (1,1)
+-- (1,1)
 --
 -- >>> finalFirst "atwoone"
--- Just (2,1)
+-- (2,1)
 --
 -- >>> finalFirst "sofone1two"
--- Just (1,3)
+-- (1,3)
 --
 
 finalFirst line =
-  helper strNum regNum
+  List.minimumBy (Ord.comparing snd) offsets
   where
-  strNum = firstNumString line (zip numStrings numValues)
-  regNum = firstNum line
-  helper Nothing Nothing = Nothing
-  helper a Nothing = a
-  helper Nothing b = b
-  helper a@(Just (a1, a2)) b@(Just (b1, b2)) =
-    if a2 < b2
-    then a
-    else b
+    numOffset = firstNum line
+    strOffsetTs = firstNumString line (zip numStrings numValues)
+    strOffsets = map (\x -> (numValue x, idx x)) strOffsetTs
+    offsets = strOffsets ++ (Maybe.maybeToList numOffset)
 
 -- | find the last numeric/string number in the line
 --
 -- Examples
 --
--- >>> finalSecond "seven2"
--- Just (2,5)
+-- >>> finalSecond "2seven"
+-- (7,1)
 --
 -- >>> finalSecond "4nineeightseven2"
--- Just (2,15)
+-- (2,15)
 
 finalSecond line =
-  case helper strNum regNum of
-    Nothing -> Nothing
-    Just (num, offset) -> Just (num, (length line) - 1 - offset)
+  let (num, offset) = List.minimumBy (Ord.comparing snd) offsets in
+    (num, (length line) - 1 - offset)
   where
-  strNum = firstNumString (reverse line) (zip (map reverse numStrings) numValues)
-  regNum = firstNum (reverse line)
-  helper Nothing Nothing = Nothing
-  helper a Nothing = a
-  helper Nothing b = b
-  helper a@(Just (a1, a2)) b@(Just (b1, b2)) =
-    if a2 < b2
-    then a
-    else b
+    numOffset = firstNum (reverse line)
+    strOffsetTs = firstNumString (reverse line) (zip (map reverse numStrings) numValues)
+    strOffsets = map (\x -> (numValue x, (idx x) + (length (strValue x)) - 1)) strOffsetTs
+    offsets = strOffsets ++ (Maybe.maybeToList numOffset)
 
 processLine :: String -> Int
-processLine line = 10 * a + b
-  where
-  (a, _) = Maybe.fromJust (finalFirst line)
-  (b, _) = Maybe.fromJust (finalSecond line)
+processLine line = 10 * fst (finalFirst line) + fst (finalSecond line)
 
 main :: IO ()
 main = do
