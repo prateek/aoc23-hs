@@ -1,4 +1,5 @@
 #!/usr/bin/env runhaskell
+
 import Data.Char qualified as Char
 import Data.Maybe qualified as Maybe
 import System.IO
@@ -10,11 +11,11 @@ data Color = Blue | Red | Green deriving (Show)
 
 data Item = Item Int Color deriving (Show)
 
-type GamePart = [Item]
+type Round = [Item]
 
 type GameID = Int
 
-data Game = Game GameID [GamePart] deriving (Show)
+data Game = Game GameID [Round] deriving (Show)
 
 -- Parser for a number
 numberParser :: Parser Int
@@ -35,12 +36,11 @@ itemParser :: Parser Item
 itemParser = do
   num <- numberParser
   Parsec.space
-  color <- colorParser
-  return $ Item num color
+  Item num <$> colorParser
 
 -- Parser for a game part (list of items)
-gamePartParser :: Parser GamePart
-gamePartParser = itemParser `Parsec.sepBy` Parsec.string ", "
+roundParser :: Parser Round
+roundParser = itemParser `Parsec.sepBy` Parsec.string ", "
 
 -- Parser for the game identifier
 gameIDParser :: Parser GameID
@@ -50,12 +50,12 @@ gameIDParser = do
   Parsec.string ": "
   return id
 
--- Parser for a game (game identifier and list of game parts)
+-- Parser for a game (game identifier and list of game rounds)
 gameParser :: Parser Game
 gameParser = do
   gameId <- gameIDParser
-  parts <- gamePartParser `Parsec.sepBy` Parsec.string "; "
-  return $ Game gameId parts
+  rounds <- roundParser `Parsec.sepBy` Parsec.string "; "
+  return $ Game gameId rounds
 
 -- Parser for multiple games
 gamesParser :: Parser [Game]
@@ -63,12 +63,12 @@ gamesParser = gameParser `Parsec.endBy` Parsec.newline
 
 -- Parse a string
 parseGames :: String -> Either Parsec.ParseError [Game]
-parseGames input = Parsec.parse gamesParser "" input
+parseGames = Parsec.parse gamesParser ""
 
--- Function to find the Minset of a GamePart
+-- Function to find the Minset of a Round
 data Minset = Minset {blue :: Int, red :: Int, green :: Int}
 
-computeMinset :: GamePart -> Minset -> Minset
+computeMinset :: Round -> Minset -> Minset
 computeMinset [] accum = accum
 computeMinset (x : rest) accum =
   case x of
@@ -76,23 +76,23 @@ computeMinset (x : rest) accum =
     Item num Red -> computeMinset rest (accum {red = max (red accum) num})
     Item num Green -> computeMinset rest (accum {green = max (green accum) num})
 
-mergeMinset :: [Minset] -> Minset
-mergeMinset [] = Minset 0 0 0
-mergeMinset (x : rest) =
+mergeMinsets :: [Minset] -> Minset
+mergeMinsets [] = Minset 0 0 0
+mergeMinsets (x : rest) =
   Minset
-    (max (blue x) (blue (mergeMinset rest)))
-    (max (red x) (red (mergeMinset rest)))
-    (max (green x) (green (mergeMinset rest)))
+    (max (blue x) (blue (mergeMinsets rest)))
+    (max (red x) (red (mergeMinsets rest)))
+    (max (green x) (green (mergeMinsets rest)))
 
 power :: Minset -> Int
 power (Minset blue red green) = blue * red * green
 
 -- Function to process each game
 processGame :: Game -> Int
-processGame (Game _ parts) =
-  power (mergeMinset minsets)
+processGame (Game _ rounds) =
+  power (mergeMinsets minsets)
   where
-    minsets = map (\p -> computeMinset p (Minset 0 0 0)) parts
+    minsets = map (\p -> computeMinset p (Minset 0 0 0)) rounds
 
 -- Example usage
 main :: IO ()

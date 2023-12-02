@@ -1,4 +1,5 @@
 #!/usr/bin/env runhaskell
+
 import Data.Char qualified as Char
 import Data.Maybe qualified as Maybe
 import System.IO
@@ -10,11 +11,11 @@ data Color = Blue | Red | Green deriving (Show)
 
 data Item = Item Int Color deriving (Show)
 
-type GamePart = [Item]
+type Round = [Item]
 
 type GameID = Int
 
-data Game = Game GameID [GamePart] deriving (Show)
+data Game = Game GameID [Round] deriving (Show)
 
 -- Parser for a number
 numberParser :: Parser Int
@@ -35,12 +36,11 @@ itemParser :: Parser Item
 itemParser = do
   num <- numberParser
   Parsec.space
-  color <- colorParser
-  return $ Item num color
+  Item num <$> colorParser
 
 -- Parser for a game part (list of items)
-gamePartParser :: Parser GamePart
-gamePartParser = itemParser `Parsec.sepBy` Parsec.string ", "
+roundParser :: Parser Round
+roundParser = itemParser `Parsec.sepBy` Parsec.string ", "
 
 -- Parser for the game identifier
 gameIDParser :: Parser GameID
@@ -50,12 +50,12 @@ gameIDParser = do
   Parsec.string ": "
   return id
 
--- Parser for a game (game identifier and list of game parts)
+-- Parser for a game (game identifier and list of game rounds)
 gameParser :: Parser Game
 gameParser = do
   gameId <- gameIDParser
-  parts <- gamePartParser `Parsec.sepBy` Parsec.string "; "
-  return $ Game gameId parts
+  rounds <- roundParser `Parsec.sepBy` Parsec.string "; "
+  return $ Game gameId rounds
 
 -- Parser for multiple games
 gamesParser :: Parser [Game]
@@ -63,23 +63,23 @@ gamesParser = gameParser `Parsec.endBy` Parsec.newline
 
 -- Parse a string
 parseGames :: String -> Either Parsec.ParseError [Game]
-parseGames input = Parsec.parse gamesParser "" input
+parseGames = Parsec.parse gamesParser ""
 
--- Function to validate a GamePart
-validateGamePart :: GamePart -> Bool
-validateGamePart [] = True
-validateGamePart (Item count Blue : rest) = count <= 14 && validateGamePart rest
-validateGamePart (Item count Green : rest) = count <= 13 && validateGamePart rest
-validateGamePart (Item count Red : rest) = count <= 12 && validateGamePart rest
+-- Function to validate a Round
+validateRound :: Round -> Bool
+validateRound [] = True
+validateRound (Item count Blue : rest) = count <= 14 && validateRound rest
+validateRound (Item count Green : rest) = count <= 13 && validateRound rest
+validateRound (Item count Red : rest) = count <= 12 && validateRound rest
 
 -- Function to process each game
 processGame :: Game -> Maybe Int
-processGame (Game id parts) =
-  if all (== True) validParts
+processGame (Game id rounds) =
+  if and validParts
     then Just id
     else Nothing
   where
-    validParts = map validateGamePart parts
+    validParts = map validateRound rounds
 
 -- Example usage
 main :: IO ()
