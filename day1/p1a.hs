@@ -1,3 +1,4 @@
+#!/usr/bin/env runhaskell
 import Data.Maybe qualified as Maybe
 import System.IO
 

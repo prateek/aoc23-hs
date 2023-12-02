@@ -1,3 +1,4 @@
+#!/usr/bin/env runhaskell
 import Data.Char qualified as Char
 import System.IO
 
