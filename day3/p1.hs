@@ -11,14 +11,6 @@ main = do
   let inputLines = lines input
   -- print inputLines
   print (processInput inputLines)
-  print (findNumbers ["a1twoone", "atwoone", "a1.321end0"])
-
-findNumbers grid =
-  concatMap (\(r, row) -> Maybe.catMaybes $ zipWith (parseNumber r) [0 ..] row) $ zip [0 ..] grid
-  where
-    parseNumber r c x
-      | Char.isDigit x = Just (read [x] :: Int, (r, c))
-      | otherwise = Nothing
 
 processInput :: [String] -> Int
 processInput [] = 0
