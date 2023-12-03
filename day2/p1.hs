@@ -1,5 +1,4 @@
 #!/usr/bin/env runhaskell
-
 import Data.Char qualified as Char
 import Data.Maybe qualified as Maybe
 import System.IO
@@ -7,7 +6,7 @@ import Text.Parsec qualified as Parsec
 import Text.Parsec.String (Parser)
 
 -- Define data types
-data Color = Blue | Red | Green deriving (Show)
+data Color = Blue | Red | Green deriving (Eq, Show)
 
 data Item = Item Int Color deriving (Show)
 
@@ -67,17 +66,16 @@ parseGames = Parsec.parse gamesParser ""
 
 -- Function to validate a Round
 validateRound :: Round -> Bool
-validateRound [] = True
-validateRound (Item count Blue : rest) = count <= 14 && validateRound rest
-validateRound (Item count Green : rest) = count <= 13 && validateRound rest
-validateRound (Item count Red : rest) = count <= 12 && validateRound rest
+validateRound = all validateItem
+  where
+    validateItem (Item count color) = count <= Maybe.fromJust (lookup color validCounts)
+    validCounts = [(Blue, 14), (Green, 13), (Red, 12)]
 
 -- Function to process each game
 processGame :: Game -> Maybe Int
-processGame (Game id rounds) =
-  if and validParts
-    then Just id
-    else Nothing
+processGame (Game id rounds)
+  | and validParts = Just id
+  | otherwise = Nothing
   where
     validParts = map validateRound rounds
 

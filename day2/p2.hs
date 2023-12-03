@@ -7,7 +7,7 @@ import Text.Parsec qualified as Parsec
 import Text.Parsec.String (Parser)
 
 -- Define data types
-data Color = Blue | Red | Green deriving (Show)
+data Color = Blue | Red | Green deriving (Eq, Show)
 
 data Item = Item Int Color deriving (Show)
 
@@ -65,34 +65,35 @@ gamesParser = gameParser `Parsec.endBy` Parsec.newline
 parseGames :: String -> Either Parsec.ParseError [Game]
 parseGames = Parsec.parse gamesParser ""
 
--- Function to find the Minset of a Round
 data Minset = Minset {blue :: Int, red :: Int, green :: Int}
 
-computeMinset :: Round -> Minset -> Minset
-computeMinset [] accum = accum
-computeMinset (x : rest) accum =
-  case x of
-    Item num Blue -> computeMinset rest (accum {blue = max (blue accum) num})
-    Item num Red -> computeMinset rest (accum {red = max (red accum) num})
-    Item num Green -> computeMinset rest (accum {green = max (green accum) num})
+-- Function to find the Minset of a Round
+computeMinset :: Round -> Minset
+computeMinset = foldl merge (Minset 0 0 0)
+  where
+    merge accum item = mergeMinsets [accum, itemToMinset item]
+
+itemToMinset :: Item -> Minset
+itemToMinset (Item num color)
+  | color == Blue = Minset num 0 0
+  | color == Red = Minset 0 num 0
+  | color == Green = Minset 0 0 num
 
 mergeMinsets :: [Minset] -> Minset
-mergeMinsets [] = Minset 0 0 0
-mergeMinsets (x : rest) =
-  Minset
-    (max (blue x) (blue (mergeMinsets rest)))
-    (max (red x) (red (mergeMinsets rest)))
-    (max (green x) (green (mergeMinsets rest)))
+mergeMinsets = foldl merge (Minset 0 0 0)
+  where
+    -- TODO: i really don't like records in haskell. is there a better way to do this?
+    -- for instance if this was a list instead, i could zipWith
+    merge (Minset b1 r1 g1) (Minset b2 r2 g2) = Minset (max b1 b2) (max r1 r2) (max g1 g2)
 
 power :: Minset -> Int
-power (Minset blue red green) = blue * red * green
+power (Minset b r g) = b * r * g
 
 -- Function to process each game
 processGame :: Game -> Int
 processGame (Game _ rounds) =
-  power (mergeMinsets minsets)
-  where
-    minsets = map (\p -> computeMinset p (Minset 0 0 0)) rounds
+  let minsets = map computeMinset rounds
+   in power $ mergeMinsets minsets
 
 -- Example usage
 main :: IO ()
@@ -104,9 +105,9 @@ main = do
 
   case parseGames input of
     Left err -> print err
-    Right games ->
+    Right games -> do
       let powers = map processGame games
-       in print (sum powers)
+      print $ sum powers
 
   -- Close the file
   hClose handle
