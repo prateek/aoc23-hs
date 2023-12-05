@@ -16,9 +16,9 @@ processLines inputLines =
    fst $ foldl go (0, [1, 1 ..]) winsPerCard
   where
    winsPerCard = map processLine inputLines
-   go (totalCards, currCopy : restCopies) numCurrWins =
-      let newTotal = totalCards + currCopy
-          addCopies = replicate numCurrWins currCopy ++ [0, 0 ..]
+   go (oldTotal, numCurrCopies : restCopies) numCurrWins =
+      let newTotal = oldTotal + numCurrCopies
+          addCopies = replicate numCurrWins numCurrCopies ++ [0, 0 ..]
           newCopies = zipWith (+) addCopies restCopies
        in (newTotal, newCopies)
 
