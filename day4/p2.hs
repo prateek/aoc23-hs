@@ -13,13 +13,13 @@ main = do
 
 processLines :: [String] -> Int
 processLines inputLines =
-   fst $ foldl go (0, [1, 1 ..]) winsPerCard
+   fst $ foldl go (0, repeat 1) winsPerCard
   where
    winsPerCard = map processLine inputLines
-   go (oldTotal, numCurrCopies : restCopies) numCurrWins =
+   go (oldTotal, numCurrCopies : oldCopies) numCurrWins =
       let newTotal = oldTotal + numCurrCopies
-          addCopies = replicate numCurrWins numCurrCopies ++ [0, 0 ..]
-          newCopies = zipWith (+) addCopies restCopies
+          deltaCopies = replicate numCurrWins numCurrCopies ++ repeat 0
+          newCopies = zipWith (+) oldCopies deltaCopies
        in (newTotal, newCopies)
 
 processLine :: String -> Int
