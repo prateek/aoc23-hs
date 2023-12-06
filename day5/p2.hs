@@ -119,5 +119,6 @@ seeds1ToRange x = group2 x & map (\(s, l) -> Loc s (s + l))
 main :: IO ()
 main = do
   input <- readFile "1.input"
-  let out = p2 input
-  print out
+  let (minRange, mlocs) = p2 input
+  print minRange
+  print (map (\o@(MappedLoc _ _ (Loc start end)) -> show o ++ " " ++ show (end - start)) mlocs)
