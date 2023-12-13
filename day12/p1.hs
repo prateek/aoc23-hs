@@ -55,7 +55,8 @@ memoizeValid running row pendingBlocks = numValid' row running pendingBlocks
   numValid ('#' : rr) n bl = numValid' rr (n + 1) bl
   -- nb: need to use numValid, not numValid' here as the former is not memoized for these inputs
   --     i could express this recurrence in terms of numValid' but I end up having to repeat
-  --     the logic
+  --     the logic. tbh - i should probably just preprocess the input to make this easier but
+  --     i'm lazy and want to be done with this one.
   numValid ('?' : rr) n bl = numValid ('#' : rr) n bl + numValid ('.' : rr) n bl
   -- numValid p _ _ = error p
 
