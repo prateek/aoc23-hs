@@ -1,75 +1,25 @@
+#!/usr/bin/env cabal
 {- cabal:
 build-depends: base
              , split
-             ,
+             , text
+             , containers
+default-extensions:
+  ImportQualifiedPost
 -}
 
 import Data.Char qualified as Char
 import Data.Function ((&))
 import Data.List qualified as L
+import Data.List.Split (splitOn)
 import Data.Map qualified as M
+import Data.Maybe qualified as Maybe
 import Data.Ord qualified as O
 import Data.Set qualified as S
 import Data.Text qualified as T
 import Debug.Trace (trace, traceShow)
 
 import System.IO
-
--- ? unknown
--- . operational
--- # damaged
-
--- exercise after the problem:
--- i wanted to append [0,0...] at the end of pending blocks
--- could i have done that and memo-ized still?
-
--- before processing
--- append '.' at the end of input string
-
--- -- numValid row runningDamaged pendingBlocks = undefined
--- numValid :: String -> Int -> [Int] -> Int
--- numValid row running pendingBlocks =
---   numValid' row running pendingBlocks
---  where
---   memo =
---     M.fromList
---       [ ((rs, val, bl), numValid' rs val bl)
---       | rs <- L.tails row
---       , val <- [0 .. max pendingBlocks]
---       , bl <- L.tails pendingBlocks
---       ]
---   go a b c = memo M.! (a, b, c)
---   numValid' "" 0 [] = 1
---   -- numValid "" x [y] = if x == y then 1 else 0 -- will this ever be hit?
---   numValid' "" _ _ = 0
---   numValid' ('.' : rr) n [] = if n == 0 then numValid' rr 0 [] else 0
---   numValid' ('.' : rr) n bl@(b : bs)
---     | n == b = numValid' rr 0 bs
---     | n == 0 = numValid' rr 0 bl
---     | otherwise = 0
---   numValid' ('#' : rr) n bl = numValid' rr (n + 1) bl
---   numValid' ('?' : rr) n bl = numValid' rr (n + 1) bl + numValid' ('.' : rr) n bl
---   numValid' p _ _ = error p
-
-numValid' "" 0 [] = 1
-numValid' "" _ _ = 0
-numValid' ('.' : rr) n bl
-  | isFirst n bl = numValid' rr 0 (tail bl)
-  | n == 0 = numValid' rr 0 bl
-  | otherwise = 0
-numValid' ('#' : rr) n bl = numValid' rr (n + 1) bl
-numValid' ('?' : rr) n bl =
-  numValid' rr (n + 1) bl
-    + if isFirst n bl
-      then numValid' rr 0 (tail bl)
-      else
-        if n == 0
-          then numValid' rr 0 bl
-          else 0
-numValid' p _ _ = error p
-
-isFirst x (b : bs) = x == b
-isFirst _ _ = False
 
 --
 -- >>> numValid "." 0 []
@@ -89,6 +39,46 @@ isFirst _ _ = False
 -- >>> numValid "?###????????." 0 [3,2,1]
 -- 10
 
+memoizeValid running row pendingBlocks = numValid' row running pendingBlocks
+ where
+  memo = M.fromList [((rs, val, bl), numValid rs val bl) | rs <- L.tails row, val <- [0 .. (maximum pendingBlocks)], bl <- L.tails pendingBlocks]
+
+  numValid' a b c = Maybe.fromMaybe 0 (M.lookup (a, b, c) memo) -- error ("not found" ++ show (a, b, c))
+  numValid "" 0 [] = 1
+  numValid "" _ _ = 0
+  numValid ('.' : rr) 0 [] = numValid' rr 0 []
+  numValid ('.' : rr) _ [] = 0
+  numValid ('.' : rr) n bl@(b : bs)
+    | n == b = numValid' rr 0 bs
+    | n == 0 = numValid' rr 0 bl
+    | otherwise = 0
+  numValid ('#' : rr) n bl = numValid' rr (n + 1) bl
+  -- nb: need to use numValid, not numValid' here as the former is not memoized for these inputs
+  --     i could express this recurrence in terms of numValid' but I end up having to repeat
+  --     the logic
+  numValid ('?' : rr) n bl = numValid ('#' : rr) n bl + numValid ('.' : rr) n bl
+  -- numValid p _ _ = error p
+
+  isFirst n (h : _) = n == h
+  isFirst _ _ = False
+
+parse :: String -> (String, [Int])
+parse xs =
+  let [word, cont] = words xs
+   in (word, map read $ splitOn "," cont)
+
+-- append "." to make edge cases easier to reason about
+preprocess :: (String, [Int]) -> (String, [Int])
+preprocess (xs, ys) = (xs ++ ".", ys)
+
+unfold :: (String, [Int]) -> (String, [Int])
+unfold (xs, ys) = (L.intercalate "?" (replicate 5 xs), concat $ replicate 5 ys)
+
 main :: IO ()
 main = do
-  print "Hello"
+  input <- map parse . lines <$> readFile "1.input"
+  let v = map (uncurry (memoizeValid 0) . preprocess) input
+  print ("p1: ", sum v)
+
+  let v2 = map (uncurry (memoizeValid 0) . preprocess . unfold) input
+  print ("p2: ", sum v2)
