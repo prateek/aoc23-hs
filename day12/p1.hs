@@ -71,6 +71,7 @@ parse xs =
 preprocess :: (String, [Int]) -> (String, [Int])
 preprocess (xs, ys) = (xs ++ ".", ys)
 
+-- heavily inspired by https://github.com/ColonelPhantom/aoc2023/blob/main/Day12.hs
 unfold :: (String, [Int]) -> (String, [Int])
 unfold (xs, ys) = (L.intercalate "?" (replicate 5 xs), concat $ replicate 5 ys)
 
