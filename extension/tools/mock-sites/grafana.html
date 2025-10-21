@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Grafana - Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #0b0c0e;
+            color: #d8d9da;
+        }
+        .header {
+            background: #1f1f20;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .dashboard-title {
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 8px 16px;
+            background: #3d71d9;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+        button:hover {
+            background: #5286e6;
+        }
+        .panel {
+            background: #1f1f20;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 2px;
+        }
+        input, select {
+            padding: 6px;
+            background: #111217;
+            border: 1px solid #3d71d9;
+            color: #d8d9da;
+        }
+        .query-editor {
+            background: #111217;
+            padding: 10px;
+            border: 1px solid #3d71d9;
+            min-height: 60px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Mock Grafana</h1>
+        <div style="font-size: 12px; color: #999;">grafana.net</div>
+    </div>
+
+    <h2 class="dashboard-title" data-testid="dashboard-title">Production Metrics</h2>
+
+    <div class="controls">
+        <label>
+            Region:
+            <select id="var-region" onchange="updateVariable('region', this.value)">
+                <option value="us-east-1">us-east-1</option>
+                <option value="us-west-2">us-west-2</option>
+                <option value="eu-west-1">eu-west-1</option>
+            </select>
+        </label>
+
+        <label>
+            Environment:
+            <select id="var-env" onchange="updateVariable('env', this.value)">
+                <option value="prod">Production</option>
+                <option value="staging">Staging</option>
+            </select>
+        </label>
+
+        <label>
+            Time Range:
+            <select id="time-range" onchange="updateTimeRange(this.value)">
+                <option value="now-6h,now">Last 6 hours</option>
+                <option value="now-1d,now">Last 24 hours</option>
+                <option value="now-7d,now">Last 7 days</option>
+            </select>
+        </label>
+    </div>
+
+    <div class="panel">
+        <h3>Query Panel</h3>
+        <div class="query-editor" data-testid="query-editor" contenteditable="true">
+SELECT mean(cpu_usage) FROM metrics WHERE region = '$region' AND env = '$env'
+        </div>
+        <button onclick="runQuery()">Run Query</button>
+    </div>
+
+    <div class="panel">
+        <button onclick="navigateToDashboard('abc123')">Switch to Dashboard ABC123</button>
+        <button onclick="navigateToExplore()">Open Explore</button>
+        <button onclick="navigateToAlerting()">Open Alerting</button>
+    </div>
+
+    <script>
+        // Simulate Grafana SPA navigation
+        function updateVariable(key, value) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('var-' + key, value);
+            window.history.pushState({}, '', url.toString());
+        }
+
+        function updateTimeRange(range) {
+            const [from, to] = range.split(',');
+            const url = new URL(window.location.href);
+            url.searchParams.set('from', from);
+            url.searchParams.set('to', to);
+            window.history.pushState({}, '', url.toString());
+        }
+
+        function runQuery() {
+            console.log('Query executed');
+            // Trigger query event
+        }
+
+        function navigateToDashboard(uid) {
+            window.history.pushState({}, '', `/d/${uid}/test-dashboard?var-region=us-east-1`);
+        }
+
+        function navigateToExplore() {
+            window.history.pushState({}, '', '/explore?left=...');
+        }
+
+        function navigateToAlerting() {
+            window.history.pushState({}, '', '/alerting/list');
+        }
+
+        // Set initial URL to look like Grafana
+        if (!window.location.pathname.includes('/d/')) {
+            window.history.replaceState({}, '', '/d/test-uid-001/production-metrics?var-region=us-east-1&var-env=prod&from=now-6h&to=now');
+        }
+    </script>
+</body>
+</html>

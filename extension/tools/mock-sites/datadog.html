@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Datadog - Logs</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            background: #f5f5f9;
+        }
+        .header {
+            background: #632ca6;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .user-menu {
+            cursor: pointer;
+            padding: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+        .user-name {
+            font-weight: 500;
+        }
+        .user-email {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        .main {
+            padding: 20px;
+        }
+        .dashboard-title {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .search-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .search-bar input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #632ca6;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #7c3cc2;
+        }
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .nav-buttons button {
+            background: #444;
+        }
+        .panel {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1 style="margin: 0; font-size: 20px;">Datadog</h1>
+        </div>
+        <div class="user-menu" data-testid="user-menu">
+            <div class="user-name" data-testid="user-name">Jane Doe</div>
+            <div class="user-email" data-testid="user-email">jane.doe@example.com</div>
+        </div>
+    </div>
+
+    <div class="main">
+        <h2 class="dashboard-title" data-testid="dashboard-title">Application Logs</h2>
+
+        <div class="search-bar">
+            <input
+                type="search"
+                id="search-input"
+                data-testid="search-input"
+                placeholder="Search logs... (e.g., status:error service:api)"
+                value=""
+            />
+            <button class="search-button" onclick="performSearch()">Search</button>
+        </div>
+
+        <div class="nav-buttons">
+            <button onclick="navigateToDashboard('123')">Dashboard 123</button>
+            <button onclick="navigateToLogs()">Logs</button>
+            <button onclick="navigateToMonitors('456')">Monitor 456</button>
+            <button onclick="navigateToAPM()">APM</button>
+            <button onclick="navigateToSynthetics()">Synthetics</button>
+        </div>
+
+        <div class="panel">
+            <h3>Recent Logs</h3>
+            <p>Logs will appear here...</p>
+        </div>
+    </div>
+
+    <script>
+        function performSearch() {
+            const query = document.getElementById('search-input').value;
+            console.log('Search query:', query);
+            // Trigger search event
+        }
+
+        function navigateToDashboard(id) {
+            window.history.pushState({}, '', `/dashboard/${id}`);
+        }
+
+        function navigateToLogs() {
+            window.history.pushState({}, '', '/logs?query=status:error');
+        }
+
+        function navigateToMonitors(id) {
+            window.history.pushState({}, '', `/monitors/${id}`);
+        }
+
+        function navigateToAPM() {
+            window.history.pushState({}, '', '/apm/services');
+        }
+
+        function navigateToSynthetics() {
+            window.history.pushState({}, '', '/synthetics/tests');
+        }
+
+        // Set initial URL to look like Datadog
+        if (!window.location.pathname.includes('/logs') && !window.location.pathname.includes('/dashboard')) {
+            window.history.replaceState({}, '', '/logs?query=*');
+        }
+
+        // Listen for Enter key in search
+        document.getElementById('search-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+    </script>
+</body>
+</html>

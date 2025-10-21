@@ -1,0 +1,42 @@
+{
+  "name": "obs-ux-meter",
+  "version": "1.0.0",
+  "description": "Privacy-preserving Chrome extension for Grafana and Datadog usage analytics",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "npm run build && concurrently -k -s first \"node tools/mock-collector.js\" \"playwright test\"",
+    "e2e:headed": "npm run build && concurrently -k -s first \"node tools/mock-collector.js\" \"PWDEBUG=1 playwright test\"",
+    "format": "prettier --write .",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.1",
+    "@types/chrome": "^0.0.253",
+    "@types/node": "^20.10.4",
+    "@types/react": "^18.2.42",
+    "@types/react-dom": "^18.2.17",
+    "@typescript-eslint/eslint-plugin": "^6.13.2",
+    "@typescript-eslint/parser": "^6.13.2",
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.55.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "fake-indexeddb": "^5.0.2",
+    "prettier": "^3.1.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.7",
+    "vitest": "^1.0.4"
+  },
+  "dependencies": {
+    "idb": "^8.0.0",
+    "preact": "^10.19.3",
+    "zod": "^3.22.4"
+  }
+}

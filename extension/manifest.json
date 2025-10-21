@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "Observability UX Meter",
+  "version": "1.0.0",
+  "description": "Privacy-preserving usage analytics for Grafana and Datadog UIs",
+  "permissions": ["storage", "alarms"],
+  "host_permissions": [
+    "https://*.datadoghq.com/*",
+    "https://*.datadoghq.eu/*",
+    "https://*.ddog-gov.com/*",
+    "https://*.grafana.net/*",
+    "https://*/grafana/*"
+  ],
+  "background": {
+    "service_worker": "background/worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.datadoghq.com/*",
+        "https://*.datadoghq.eu/*",
+        "https://*.ddog-gov.com/*",
+        "https://*.grafana.net/*",
+        "https://*/grafana/*"
+      ],
+      "js": ["content/inject.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "options_page": "options/index.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}
