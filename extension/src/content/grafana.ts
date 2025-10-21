@@ -1,6 +1,11 @@
 import type { UXEventV2, Config, Route, Asset } from '../core/schema';
 import { parseURL, maybeHashAsset } from '../core/utils';
 import { redactAndTruncateVar, redactAndTruncateQuery } from '../core/redactor';
+import {
+  PerformanceTracker,
+  GrafanaPanelDetector,
+  type PanelDetectionResult,
+} from '../core/performance';
 
 export interface GrafanaPageContext {
   pageType: string;
@@ -178,5 +183,173 @@ export class GrafanaTracker {
     }
 
     return meta;
+  }
+
+  // Setup performance tracking for dashboard loads
+  setupPerformanceTracking(
+    performanceTracker: PerformanceTracker,
+    onWaterfall: (waterfall: any) => void
+  ): () => void {
+    if (!this.config.privacy_toggles.enable_performance_tracking) {
+      return () => {};
+    }
+
+    const panelDetector = new GrafanaPanelDetector();
+    let dashboardLoadStart = 0;
+    let dashboardUid = '';
+    const panelLoadStarts = new Map<string, number>();
+
+    // Detect dashboard navigation
+    const checkDashboardLoad = () => {
+      const path = window.location.pathname;
+      const dashboardMatch = path.match(/\/d(?:-solo)?\/([^/]+)/);
+
+      if (dashboardMatch) {
+        const uid = dashboardMatch[1];
+
+        // New dashboard load
+        if (uid !== dashboardUid) {
+          // Emit waterfall for previous dashboard if exists
+          if (dashboardUid && dashboardLoadStart) {
+            const waterfall = performanceTracker.getWaterfall();
+            if (waterfall) {
+              onWaterfall(waterfall);
+            }
+          }
+
+          // Reset and start new dashboard tracking
+          dashboardUid = uid;
+          dashboardLoadStart = performance.now();
+          performanceTracker.reset();
+          performanceTracker.startSpan('dashboard-load', {
+            type: 'dashboard',
+            assetId: uid,
+          });
+
+          // Track template variable resolution
+          this.trackTemplateVarLoading(performanceTracker);
+
+          // Wait for initial panels to load, then end dashboard span
+          setTimeout(() => {
+            performanceTracker.endSpan('dashboard-load');
+          }, 2000); // Give panels 2s to appear
+        }
+      }
+    };
+
+    // Observe panel loads
+    const stopObserving = panelDetector.observePanelLoads((panel: PanelDetectionResult) => {
+      const panelKey = `panel-${panel.id}`;
+      const startTime = panel.loadTime || performance.now();
+
+      performanceTracker.startSpan(panelKey, {
+        type: 'panel',
+        assetId: panel.id,
+        metadata: { name: panel.name || 'unknown' },
+      });
+
+      panelLoadStarts.set(panel.id, startTime);
+
+      // Watch for panel render completion
+      this.watchPanelRender(panel.element, () => {
+        performanceTracker.endSpan(panelKey);
+      });
+    });
+
+    // Initial check
+    checkDashboardLoad();
+
+    // Listen for navigation
+    const originalPushState = window.history.pushState;
+    window.history.pushState = function (...args) {
+      originalPushState.apply(this, args);
+      checkDashboardLoad();
+    };
+
+    const originalReplaceState = window.history.replaceState;
+    window.history.replaceState = function (...args) {
+      originalReplaceState.apply(this, args);
+      checkDashboardLoad();
+    };
+
+    window.addEventListener('popstate', checkDashboardLoad);
+
+    // Cleanup
+    return () => {
+      stopObserving();
+      window.removeEventListener('popstate', checkDashboardLoad);
+      window.history.pushState = originalPushState;
+      window.history.replaceState = originalReplaceState;
+    };
+  }
+
+  private trackTemplateVarLoading(performanceTracker: PerformanceTracker): void {
+    // Detect template variable dropdowns/inputs
+    const varSelectors = document.querySelectorAll(
+      '[data-testid^="variable-"], .template-variable'
+    );
+
+    varSelectors.forEach((varEl) => {
+      const varKey =
+        varEl.getAttribute('data-testid')?.replace('variable-', '') ||
+        varEl.getAttribute('data-variable') ||
+        'unknown';
+
+      const spanName = `template-var:${varKey}`;
+      performanceTracker.startSpan(spanName, {
+        type: 'template-var',
+        assetId: varKey,
+      });
+
+      // Watch for value to be loaded (simplistic: wait for content)
+      const observer = new MutationObserver(() => {
+        if (varEl.textContent && varEl.textContent.length > 0) {
+          performanceTracker.endSpan(spanName);
+          observer.disconnect();
+        }
+      });
+
+      observer.observe(varEl, { childList: true, subtree: true, characterData: true });
+
+      // Timeout after 5s
+      setTimeout(() => {
+        performanceTracker.endSpan(spanName);
+        observer.disconnect();
+      }, 5000);
+    });
+  }
+
+  private watchPanelRender(element: Element, onComplete: () => void): void {
+    // Wait for panel to have content (loading spinner removed, data rendered)
+    const checkRendered = () => {
+      const spinner = element.querySelector('.panel-loading, [data-testid="panel-loading"]');
+      const hasContent = element.querySelector(
+        '.panel-content, [data-testid="panel-content"], canvas, svg'
+      );
+
+      if (!spinner && hasContent) {
+        onComplete();
+        return true;
+      }
+      return false;
+    };
+
+    // Immediate check
+    if (checkRendered()) return;
+
+    // Observe changes
+    const observer = new MutationObserver(() => {
+      if (checkRendered()) {
+        observer.disconnect();
+      }
+    });
+
+    observer.observe(element, { childList: true, subtree: true, attributes: true });
+
+    // Timeout after 10s
+    setTimeout(() => {
+      onComplete();
+      observer.disconnect();
+    }, 10000);
   }
 }

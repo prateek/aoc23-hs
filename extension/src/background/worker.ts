@@ -29,6 +29,7 @@ chrome.runtime.onInstalled.addListener(async () => {
         collect_raw_queries: false,
         collect_absolute_timestamps: false,
         enable_time_bucketing: false,
+        enable_performance_tracking: false,
       },
       redaction_policy: {
         redact_credentials: true,

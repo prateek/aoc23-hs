@@ -299,6 +299,240 @@ Includes optional fields when privacy toggles are enabled:
 
 ---
 
+## Performance Waterfall Tracking
+
+### Overview
+
+The extension includes **opt-in waterfall-style performance tracking** to measure dashboard and panel load times. This provides detailed timing breakdowns for:
+
+- **Dashboard load**: Total time from navigation to full render
+- **Panel loads**: Individual panel render times
+- **Template variables**: Variable resolution timing
+- **Data fetches**: XHR/fetch request timing
+- **Browser metrics**: DOM content loaded, LCP, paint timing
+
+### Enabling Performance Tracking
+
+**Privacy Default**: Performance tracking is **OFF** by default.
+
+To enable:
+1. Go to extension Options
+2. Scroll to **Privacy Toggles**
+3. Check **"Enable performance waterfall tracking"**
+4. Save settings
+
+### Waterfall Event Structure
+
+When a dashboard finishes loading, a `performance_waterfall` event is emitted:
+
+```json
+{
+  "ts": "2023-01-01T00:05:23Z",
+  "session_id": "...",
+  "anon_user_id": "...",
+  "platform": "grafana",
+  "page_type": "performance",
+  "action": "performance_waterfall",
+  "route": {
+    "url": "https://grafana.net/d/abc123/prod-metrics",
+    "path": "/d/abc123/prod-metrics",
+    "query": {}
+  },
+  "performance": {
+    "total_duration_ms": 2847,
+    "navigation_start": 1672531523000,
+    "spans": [
+      {
+        "name": "dashboard-load",
+        "type": "dashboard",
+        "start_ms": 0,
+        "duration_ms": 2000,
+        "asset_id": "abc123"
+      },
+      {
+        "name": "template-var:region",
+        "type": "template-var",
+        "start_ms": 120,
+        "duration_ms": 340,
+        "asset_id": "region"
+      },
+      {
+        "name": "panel-2",
+        "type": "panel",
+        "start_ms": 450,
+        "duration_ms": 1200,
+        "asset_id": "2",
+        "metadata": {
+          "name": "CPU Usage"
+        }
+      },
+      {
+        "name": "panel-4",
+        "type": "panel",
+        "start_ms": 480,
+        "duration_ms": 2367,
+        "asset_id": "4",
+        "metadata": {
+          "name": "Memory Usage"
+        }
+      },
+      {
+        "name": "data-fetch:/api/datasources/proxy/5/api/v1/query_range",
+        "type": "data-fetch",
+        "start_ms": 500,
+        "duration_ms": 890,
+        "metadata": {
+          "url": "/api/datasources/proxy/5/api/v1/query_range"
+        }
+      },
+      {
+        "name": "browser:first-paint",
+        "type": "render",
+        "start_ms": 234,
+        "duration_ms": 0
+      },
+      {
+        "name": "browser:first-contentful-paint",
+        "type": "render",
+        "start_ms": 421,
+        "duration_ms": 0
+      }
+    ],
+    "metrics": {
+      "dom_content_loaded_ms": 1234,
+      "load_complete_ms": 2500
+    }
+  }
+}
+```
+
+### Span Types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `dashboard` | Overall dashboard load time | Dashboard from nav start to all panels rendered |
+| `panel` | Individual panel render time | "CPU Usage" panel load |
+| `template-var` | Template variable resolution | "region" dropdown populated |
+| `query` | Query execution timing | Prometheus query run |
+| `data-fetch` | XHR/fetch request timing | API call to fetch metrics |
+| `render` | Browser rendering milestones | First paint, LCP |
+| `widget` | Datadog widget load (Datadog-specific) | Widget render time |
+| `other` | Miscellaneous timing spans | Custom marks |
+
+### How It Works
+
+#### Grafana
+
+1. **Dashboard detection**: Monitors URL for `/d/:uid` pattern
+2. **Panel detection**: Uses `MutationObserver` to detect panel DOM elements (`[data-panelid]`)
+3. **Template vars**: Detects `[data-testid^="variable-"]` elements, measures time to populate
+4. **Panel render**: Watches for loading spinners to disappear and content (canvas/SVG) to appear
+5. **Waterfall emission**: After 2 seconds of no new panels, emits complete waterfall
+
+#### Datadog
+
+1. **Dashboard detection**: Monitors URL for `/dashboard/:id`
+2. **Widget detection**: Detects `[data-widget-id], .widget` elements
+3. **Widget render**: Watches for loading indicators to disappear
+4. **Waterfall emission**: After 2 seconds, emits complete waterfall
+
+### Use Cases
+
+**Migration Planning:**
+```sql
+-- Compare Grafana vs Datadog dashboard performance
+SELECT
+  platform,
+  AVG(performance->>'total_duration_ms'::text::int) as avg_load_ms,
+  PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY (performance->>'total_duration_ms')::int) as p95_load_ms
+FROM ux_events
+WHERE action = 'performance_waterfall'
+GROUP BY platform;
+```
+
+**Slow Panel Detection:**
+```sql
+-- Find panels that take >5 seconds to load
+SELECT
+  span->>'name' as panel_name,
+  AVG((span->>'duration_ms')::int) as avg_duration_ms
+FROM ux_events,
+  jsonb_array_elements(performance->'spans') as span
+WHERE action = 'performance_waterfall'
+  AND span->>'type' = 'panel'
+  AND (span->>'duration_ms')::int > 5000
+GROUP BY span->>'name'
+ORDER BY avg_duration_ms DESC;
+```
+
+**Template Variable Performance:**
+```sql
+-- Average time to resolve template variables
+SELECT
+  span->>'asset_id' as var_name,
+  AVG((span->>'duration_ms')::int) as avg_resolution_ms
+FROM ux_events,
+  jsonb_array_elements(performance->'spans') as span
+WHERE span->>'type' = 'template-var'
+GROUP BY var_name
+ORDER BY avg_resolution_ms DESC;
+```
+
+**Dashboard Load Timeline Visualization:**
+```python
+import pandas as pd
+import plotly.express as px
+
+# Load waterfall data
+df = pd.read_json('waterfall_events.ndjson', lines=True)
+
+# Extract spans
+spans = []
+for idx, row in df.iterrows():
+    for span in row['performance']['spans']:
+        spans.append({
+            'dashboard': row['route']['path'],
+            'name': span['name'],
+            'type': span['type'],
+            'start': span['start_ms'],
+            'end': span['start_ms'] + span['duration_ms'],
+            'duration': span['duration_ms']
+        })
+
+spans_df = pd.DataFrame(spans)
+
+# Create Gantt chart
+fig = px.timeline(
+    spans_df,
+    x_start='start',
+    x_end='end',
+    y='name',
+    color='type',
+    title='Dashboard Load Waterfall'
+)
+fig.show()
+```
+
+### Privacy Considerations
+
+**What is collected:**
+- Panel IDs (hashed by default unless `collect_raw_asset_names` is ON)
+- Panel names (hashed)
+- Timing durations (milliseconds)
+- Span types and metadata
+
+**What is NOT collected:**
+- Panel data/query results
+- User interactions within panels
+- DOM content or innerText
+- Credentials or tokens
+
+**Sampling:**
+- Performance waterfalls respect the global `sampling_rate`
+- Heavy overhead? Reduce sampling or disable performance tracking
+
+---
+
 ## Development
 
 ### Project Structure
@@ -317,7 +551,8 @@ extension/
 │   │   ├── router.ts     # SPA navigation tracking
 │   │   ├── idle.ts       # Idle/active detection
 │   │   ├── queue.ts      # Batching & IndexedDB
-│   │   └── transport.ts  # HTTP adapters
+│   │   ├── transport.ts  # HTTP adapters
+│   │   └── performance.ts # Waterfall tracking
 │   ├── background/
 │   │   └── worker.ts     # Service worker
 │   └── options/

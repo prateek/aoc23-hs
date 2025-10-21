@@ -1,4 +1,4 @@
-import type { UXEventV2, Route, Platform } from '../core/schema';
+import type { UXEventV2, Route, Platform, PerformanceWaterfall } from '../core/schema';
 import { buildIdentity, buildAsset, buildTemplateVars, buildTimeRange } from '../core/schema';
 import {
   getConfig,
@@ -13,6 +13,7 @@ import { SPARouter } from '../core/router';
 import { IdleTracker } from '../core/idle';
 import { EventQueue } from '../core/queue';
 import { createTransport } from '../core/transport';
+import { PerformanceTracker } from '../core/performance';
 import { GrafanaTracker } from './grafana';
 import { DatadogTracker } from './datadog';
 
@@ -25,6 +26,7 @@ class ObsUXMeter {
   private router: SPARouter | null = null;
   private idleTracker: IdleTracker | null = null;
   private queue: EventQueue | null = null;
+  private performanceTracker: PerformanceTracker | null = null;
   private grafanaTracker: GrafanaTracker | null = null;
   private datadogTracker: DatadogTracker | null = null;
   private sampled = false;
@@ -103,6 +105,23 @@ class ObsUXMeter {
         );
       } else if (this.datadogTracker) {
         this.datadogTracker.setupQueryDetection((query) => this.handleQuery(query));
+      }
+
+      // Setup performance tracking
+      if (this.config.privacy_toggles.enable_performance_tracking) {
+        this.performanceTracker = new PerformanceTracker(this.config);
+
+        if (this.grafanaTracker) {
+          this.grafanaTracker.setupPerformanceTracking(
+            this.performanceTracker,
+            (waterfall) => this.handlePerformanceWaterfall(waterfall)
+          );
+        } else if (this.datadogTracker) {
+          this.datadogTracker.setupPerformanceTracking(
+            this.performanceTracker,
+            (waterfall) => this.handlePerformanceWaterfall(waterfall)
+          );
+        }
       }
 
       // Setup unload handler
@@ -225,6 +244,32 @@ class ObsUXMeter {
       debug(this.config, 'Query event:', event);
     } catch (error) {
       console.error('[obs-ux-meter] Query handler failed:', error);
+    }
+  }
+
+  private async handlePerformanceWaterfall(waterfall: PerformanceWaterfall): Promise<void> {
+    try {
+      await updateLastActivity();
+
+      const event: UXEventV2 = {
+        ts: new Date().toISOString(),
+        session_id: this.sessionId,
+        anon_user_id: this.anonUserId,
+        platform: this.platform!,
+        page_type: 'performance',
+        action: 'performance_waterfall',
+        route: {
+          url: window.location.href,
+          path: window.location.pathname,
+          query: {},
+        },
+        performance: waterfall,
+      };
+
+      await this.queue?.enqueue(event);
+      debug(this.config, 'Performance waterfall event:', event);
+    } catch (error) {
+      console.error('[obs-ux-meter] Performance waterfall handler failed:', error);
     }
   }
 

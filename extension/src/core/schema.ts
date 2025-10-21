@@ -15,6 +15,7 @@ export const ActionSchema = z.enum([
   'alert_opened',
   'query_run',
   'variable_changed',
+  'performance_waterfall',
 ]);
 export type Action = z.infer<typeof ActionSchema>;
 
@@ -85,6 +86,42 @@ export const TimeRangeSchema = z.object({
 });
 export type TimeRange = z.infer<typeof TimeRangeSchema>;
 
+// Performance tracking schemas
+export const PerformanceSpanSchema = z.object({
+  name: z.string(), // e.g., "panel:cpu-usage", "template-var:region", "dashboard-load"
+  type: z.enum([
+    'dashboard',
+    'panel',
+    'template-var',
+    'query',
+    'data-fetch',
+    'render',
+    'widget',
+    'other',
+  ]),
+  start_ms: z.number(), // milliseconds since navigation start
+  duration_ms: z.number(),
+  asset_id: z.string().optional(), // panel ID, var key, etc.
+  metadata: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
+});
+export type PerformanceSpan = z.infer<typeof PerformanceSpanSchema>;
+
+export const PerformanceWaterfallSchema = z.object({
+  total_duration_ms: z.number(),
+  navigation_start: z.number(), // Unix timestamp ms
+  spans: z.array(PerformanceSpanSchema),
+  metrics: z
+    .object({
+      dom_content_loaded_ms: z.number().optional(),
+      load_complete_ms: z.number().optional(),
+      first_paint_ms: z.number().optional(),
+      first_contentful_paint_ms: z.number().optional(),
+      largest_contentful_paint_ms: z.number().optional(),
+    })
+    .optional(),
+});
+export type PerformanceWaterfall = z.infer<typeof PerformanceWaterfallSchema>;
+
 // Base event schema
 export const UXEventSchema = z.object({
   ts: z.string(),
@@ -105,6 +142,7 @@ export const UXEventV2Schema = UXEventSchema.extend({
   template_vars: z.array(TemplateVarSchema).optional(),
   query: QueryMetaSchema.optional(),
   time_range: TimeRangeSchema.optional(),
+  performance: PerformanceWaterfallSchema.optional(),
 });
 export type UXEventV2 = z.infer<typeof UXEventV2Schema>;
 
@@ -129,6 +167,7 @@ export const PrivacyTogglesSchema = z.object({
   collect_raw_queries: z.boolean().default(false),
   collect_absolute_timestamps: z.boolean().default(false),
   enable_time_bucketing: z.boolean().default(false),
+  enable_performance_tracking: z.boolean().default(false),
 });
 export type PrivacyToggles = z.infer<typeof PrivacyTogglesSchema>;
 

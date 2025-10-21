@@ -265,6 +265,23 @@ function OptionsPage() {
           />
           <span>Enable time range bucketing</span>
         </div>
+
+        <div class="checkbox-label">
+          <input
+            type="checkbox"
+            checked={config.privacy_toggles.enable_performance_tracking}
+            onChange={(e) =>
+              setConfigState({
+                ...config,
+                privacy_toggles: {
+                  ...config.privacy_toggles,
+                  enable_performance_tracking: (e.target as HTMLInputElement).checked,
+                },
+              })
+            }
+          />
+          <span>Enable performance waterfall tracking (dashboard load times, panel timing)</span>
+        </div>
       </div>
 
       {/* Identity */}

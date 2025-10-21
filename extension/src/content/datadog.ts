@@ -1,6 +1,11 @@
 import type { Config, Route, Asset } from '../core/schema';
 import { maybeHashAsset } from '../core/utils';
 import { redactAndTruncateQuery } from '../core/redactor';
+import {
+  PerformanceTracker,
+  DatadogWidgetDetector,
+  type PanelDetectionResult,
+} from '../core/performance';
 
 export interface DatadogPageContext {
   pageType: string;
@@ -173,5 +178,128 @@ export class DatadogTracker {
     }
 
     return null;
+  }
+
+  // Setup performance tracking for dashboard/widget loads
+  setupPerformanceTracking(
+    performanceTracker: PerformanceTracker,
+    onWaterfall: (waterfall: any) => void
+  ): () => void {
+    if (!this.config.privacy_toggles.enable_performance_tracking) {
+      return () => {};
+    }
+
+    const widgetDetector = new DatadogWidgetDetector();
+    let dashboardId = '';
+    let dashboardLoadStart = 0;
+
+    // Detect dashboard navigation
+    const checkDashboardLoad = () => {
+      const path = window.location.pathname;
+      const dashboardMatch = path.match(/\/dashboard\/([^/]+)/);
+
+      if (dashboardMatch && dashboardMatch[1] !== 'lists') {
+        const id = dashboardMatch[1];
+
+        // New dashboard load
+        if (id !== dashboardId) {
+          // Emit waterfall for previous dashboard if exists
+          if (dashboardId && dashboardLoadStart) {
+            const waterfall = performanceTracker.getWaterfall();
+            if (waterfall) {
+              onWaterfall(waterfall);
+            }
+          }
+
+          // Reset and start new dashboard tracking
+          dashboardId = id;
+          dashboardLoadStart = performance.now();
+          performanceTracker.reset();
+          performanceTracker.startSpan('dashboard-load', {
+            type: 'dashboard',
+            assetId: id,
+          });
+
+          // Wait for widgets to load
+          setTimeout(() => {
+            performanceTracker.endSpan('dashboard-load');
+          }, 2000);
+        }
+      }
+    };
+
+    // Observe widget loads
+    const stopObserving = widgetDetector.observePanelLoads((widget: PanelDetectionResult) => {
+      const widgetKey = `widget-${widget.id}`;
+
+      performanceTracker.startSpan(widgetKey, {
+        type: 'widget',
+        assetId: widget.id,
+        metadata: { name: widget.name || 'unknown' },
+      });
+
+      // Watch for widget render completion
+      this.watchWidgetRender(widget.element, () => {
+        performanceTracker.endSpan(widgetKey);
+      });
+    });
+
+    // Initial check
+    checkDashboardLoad();
+
+    // Listen for navigation
+    const originalPushState = window.history.pushState;
+    window.history.pushState = function (...args) {
+      originalPushState.apply(this, args);
+      checkDashboardLoad();
+    };
+
+    const originalReplaceState = window.history.replaceState;
+    window.history.replaceState = function (...args) {
+      originalReplaceState.apply(this, args);
+      checkDashboardLoad();
+    };
+
+    window.addEventListener('popstate', checkDashboardLoad);
+
+    // Cleanup
+    return () => {
+      stopObserving();
+      window.removeEventListener('popstate', checkDashboardLoad);
+      window.history.pushState = originalPushState;
+      window.history.replaceState = originalReplaceState;
+    };
+  }
+
+  private watchWidgetRender(element: Element, onComplete: () => void): void {
+    // Wait for widget to have content (loading spinner removed, data rendered)
+    const checkRendered = () => {
+      const spinner = element.querySelector('.loading, [data-testid="loading"]');
+      const hasContent = element.querySelector('.widget-content, canvas, svg, table');
+
+      if (!spinner && hasContent) {
+        onComplete();
+        return true;
+      }
+      return false;
+    };
+
+    // Immediate check
+    if (checkRendered()) return;
+
+    // Observe changes
+    const observer = new MutationObserver(() => {
+      if (checkRendered()) {
+        observer.disconnect();
+      }
+    });
+
+    observer.observe(element, { childList: true, subtree: true, attributes: true });
+
+    // Timeout after 10s
+    setTimeout(() => {
+      onComplete();
+      observer.disconnect();
+    }, 10000);
   }
 }
