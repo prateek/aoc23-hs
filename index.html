@@ -1,0 +1,1845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>ChatGPT Export Filter</title>
+  <style>
+    /* CSS Reset & Base */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --primary: #10a37f;
+      --primary-dark: #0d8c6d;
+      --danger: #ef4444;
+      --border: #d1d5db;
+      --bg: #ffffff;
+      --bg-secondary: #f9fafb;
+      --text: #1f2937;
+      --text-secondary: #6b7280;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1);
+      --shadow-lg: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--text);
+      background: var(--bg-secondary);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* Utility Classes */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1rem;
+    }
+
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .flex-wrap { flex-wrap: wrap; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .justify-center { justify-content: center; }
+    .gap-2 { gap: 0.5rem; }
+    .gap-4 { gap: 1rem; }
+    .gap-6 { gap: 1.5rem; }
+
+    .mt-2 { margin-top: 0.5rem; }
+    .mt-4 { margin-top: 1rem; }
+    .mb-2 { margin-bottom: 0.5rem; }
+    .mb-4 { margin-bottom: 1rem; }
+    .p-2 { padding: 0.5rem; }
+    .p-4 { padding: 1rem; }
+    .px-4 { padding-left: 1rem; padding-right: 1rem; }
+    .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+    .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+
+    .w-full { width: 100%; }
+    .h-full { height: 100%; }
+
+    .text-sm { font-size: 0.875rem; }
+    .text-xs { font-size: 0.75rem; }
+    .text-lg { font-size: 1.125rem; }
+    .font-medium { font-weight: 500; }
+    .font-semibold { font-weight: 600; }
+
+    .text-secondary { color: var(--text-secondary); }
+    .text-danger { color: var(--danger); }
+
+    .rounded { border-radius: 0.375rem; }
+    .rounded-lg { border-radius: 0.5rem; }
+    .rounded-full { border-radius: 9999px; }
+
+    .shadow { box-shadow: var(--shadow); }
+    .shadow-lg { box-shadow: var(--shadow-lg); }
+
+    /* Layout */
+    .app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding-top: var(--safe-top);
+      padding-bottom: var(--safe-bottom);
+    }
+
+    .header {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem;
+      position: sticky;
+      top: var(--safe-top);
+      z-index: 100;
+      box-shadow: var(--shadow);
+    }
+
+    .main {
+      flex: 1;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .content-grid {
+      display: grid;
+      gap: 1rem;
+      padding: 1rem;
+      grid-template-columns: 1fr;
+    }
+
+    @media (min-width: 768px) {
+      .content-grid {
+        grid-template-columns: 300px 1fr 280px;
+      }
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.625rem 1rem;
+      min-height: 44px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border: none;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+
+    .btn-sm {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.75rem;
+      min-height: 36px;
+    }
+
+    /* Form Elements */
+    input[type="text"],
+    input[type="search"],
+    input[type="date"],
+    input[type="time"],
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 0.625rem;
+      min-height: 44px;
+      font-size: 1rem;
+      border: 1px solid var(--border);
+      border-radius: 0.375rem;
+      background: var(--bg);
+    }
+
+    input:focus,
+    select:focus {
+      outline: 2px solid var(--primary);
+      outline-offset: 0;
+      border-color: var(--primary);
+    }
+
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+      color: var(--text-secondary);
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 1rem;
+    }
+
+    /* Filter Panel */
+    .filter-panel {
+      background: var(--bg);
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .filter-header {
+      padding: 1rem;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 44px;
+    }
+
+    .filter-content {
+      padding: 1rem;
+    }
+
+    /* Results List */
+    .results-list {
+      border-radius: 0.5rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .result-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 1rem;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+
+    .result-item:hover {
+      background: var(--bg-secondary);
+    }
+
+    .result-item:last-child {
+      border-bottom: none;
+    }
+
+    .checkbox-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      min-height: 44px;
+      cursor: pointer;
+    }
+
+    input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+
+    .result-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .result-title {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .result-meta {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      border-radius: 0.25rem;
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+
+    .badge-primary {
+      background: #dbeafe;
+      color: #1e40af;
+      border-color: #93c5fd;
+    }
+
+    .badge-success {
+      background: #d1fae5;
+      color: #065f46;
+      border-color: #6ee7b7;
+    }
+
+    .badge-warning {
+      background: #fef3c7;
+      color: #92400e;
+      border-color: #fcd34d;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 1rem;
+      padding-top: calc(1rem + var(--safe-top));
+      padding-bottom: calc(1rem + var(--safe-bottom));
+    }
+
+    .modal {
+      background: var(--bg);
+      border-radius: 0.5rem;
+      max-width: 700px;
+      width: 100%;
+      max-height: 90vh;
+      max-height: 90dvh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-header {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-body {
+      flex: 1;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 1rem;
+    }
+
+    .modal-footer {
+      padding: 1rem;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Message Bubbles */
+    .message {
+      margin-bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .message-role {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    .message-bubble {
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      word-wrap: break-word;
+    }
+
+    .message-user .message-bubble {
+      background: #dbeafe;
+      border-color: #93c5fd;
+    }
+
+    .message-assistant .message-bubble {
+      background: #d1fae5;
+      border-color: #6ee7b7;
+    }
+
+    /* Day chips */
+    .day-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .day-chip {
+      padding: 0.375rem 0.75rem;
+      min-height: 44px;
+      font-size: 0.875rem;
+      border: 1px solid var(--border);
+      border-radius: 0.375rem;
+      background: var(--bg);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .day-chip:hover {
+      background: var(--bg-secondary);
+    }
+
+    .day-chip.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    /* Info Banner */
+    .info-banner {
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+      padding: 0.75rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+    }
+
+    .error-banner {
+      background: #fee2e2;
+      border: 1px solid #fca5a5;
+      padding: 0.75rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+      color: #991b1b;
+    }
+
+    /* Bottom Action Bar (mobile) */
+    .bottom-bar {
+      position: sticky;
+      bottom: var(--safe-bottom);
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+      padding-bottom: calc(0.75rem + var(--safe-bottom));
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    @media (min-width: 768px) {
+      .bottom-bar {
+        display: none;
+      }
+    }
+
+    .export-card {
+      position: sticky;
+      top: 1rem;
+    }
+
+    /* Loading Spinner */
+    .spinner {
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Accessibility */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+
+    /* Toggle Switch */
+    .toggle-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-height: 44px;
+    }
+
+    .toggle {
+      position: relative;
+      width: 48px;
+      height: 28px;
+      background: var(--border);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle.active {
+      background: var(--primary);
+    }
+
+    .toggle-thumb {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 24px;
+      height: 24px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle.active .toggle-thumb {
+      transform: translateX(20px);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-secondary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- CDN Dependencies -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <script type="module">
+    const { useState, useEffect, useMemo, useCallback, useRef } = React;
+
+    // ============================================================================
+    // TEST DATA & FIXTURES
+    // ============================================================================
+
+    const TEST_CONVERSATIONS = [
+      {
+        "id": "A",
+        "title": "Hello World Chat",
+        "model": "gpt-4o",
+        "messages": [
+          { "id": "m1", "author": { "role": "user" }, "create_time": 1730336400, "content": { "parts": ["hello world"] } },
+          { "id": "m2", "author": { "role": "assistant" }, "create_time": 1730336460, "content": { "parts": ["hi!"] } }
+        ],
+        "is_pinned": true,
+        "labels": ["work"],
+        "country": "USA"
+      },
+      {
+        "id": "B",
+        "title": "Regex Test",
+        "default_model_slug": "gpt-3.5",
+        "mapping": {
+          "x": { "message": { "id": "x", "author": { "role": "user" }, "create_time": 1729468800, "content": { "parts": ["Foo bar baz"] } } },
+          "y": { "message": { "id": "y", "author": { "role": "assistant" }, "create_time": 1729555200, "content": { "parts": ["Response"] } } }
+        },
+        "archived": true,
+        "metadata": { "project": "Phoenix" }
+      },
+      {
+        "id": "C",
+        "title": "Images",
+        "model": "gpt-4o-mini",
+        "messages": [
+          { "id": "c1", "author": { "role": "user" }, "create_time": 1730422800, "content": { "content_type": "multimodal", "parts": [{ "type": "image", "url": "x" }] } }
+        ],
+        "folder_id": "f1"
+      }
+    ];
+
+    const TEST_FOLDERS = {
+      "folders": [
+        { "id": "f1", "name": "Work", "conversation_ids": ["C"] }
+      ]
+    };
+
+    // ============================================================================
+    // PARSING & NORMALIZATION
+    // ============================================================================
+
+    function normalizeTimestamp(ts) {
+      if (!ts) return null;
+      // If timestamp < 1e12 → seconds; else → milliseconds
+      const num = typeof ts === 'string' ? parseFloat(ts) : ts;
+      return num < 1e12 ? num * 1000 : num;
+    }
+
+    function extractMessages(conv) {
+      const messages = [];
+
+      // Try messages array first
+      if (Array.isArray(conv.messages)) {
+        messages.push(...conv.messages);
+      }
+
+      // Try mapping object
+      if (conv.mapping && typeof conv.mapping === 'object') {
+        const mappingMessages = Object.values(conv.mapping)
+          .filter(node => node?.message)
+          .map(node => node.message);
+        messages.push(...mappingMessages);
+      }
+
+      return messages;
+    }
+
+    function normalizeMessage(msg) {
+      const role = msg.author?.role || msg.role || 'system';
+      let text = '';
+      let hasMedia = false;
+
+      if (msg.content) {
+        // Check for multimodal
+        if (msg.content.content_type?.includes('multimodal')) {
+          hasMedia = true;
+        }
+
+        // Extract text from parts
+        if (Array.isArray(msg.content.parts)) {
+          const textParts = [];
+          for (const part of msg.content.parts) {
+            if (typeof part === 'string') {
+              textParts.push(part);
+            } else if (part && typeof part === 'object') {
+              hasMedia = true;
+              if (part.text) textParts.push(part.text);
+            }
+          }
+          text = textParts.join(' ');
+        } else if (typeof msg.content === 'string') {
+          text = msg.content;
+        }
+      }
+
+      return {
+        id: msg.id || Math.random().toString(36),
+        role: role,
+        text: text,
+        create_time: normalizeTimestamp(msg.create_time),
+        model: msg.model || msg.metadata?.model_slug || null,
+        has_media: hasMedia
+      };
+    }
+
+    function normalizeConversation(conv, foldersData = null) {
+      const messages = extractMessages(conv).map(normalizeMessage);
+
+      // Extract model
+      const model = conv.model || conv.default_model_slug || conv.model_slug || null;
+
+      // Extract GPT/gizmo name
+      const gpt = conv.gizmo?.name || conv.custom_gpt_name || conv.gpt_name || null;
+
+      // Check if any message has media
+      const hasImages = messages.some(m => m.has_media);
+
+      // Extract timestamps
+      let create_time = normalizeTimestamp(conv.create_time);
+      let update_time = normalizeTimestamp(conv.update_time);
+
+      // Fallback to message timestamps
+      if (!create_time && messages.length > 0) {
+        create_time = messages[0].create_time;
+      }
+      if (!update_time && messages.length > 0) {
+        update_time = messages[messages.length - 1].create_time;
+      }
+
+      // Folder enrichment
+      let folder_id = conv.folder_id || null;
+      let folder_name = conv.folder_name || null;
+
+      // Try to enrich from folders data
+      if (foldersData && foldersData.folders) {
+        for (const folder of foldersData.folders) {
+          if (folder.conversation_ids?.includes(conv.id)) {
+            folder_id = folder.id;
+            folder_name = folder.name;
+            break;
+          }
+        }
+      }
+
+      // Extract labels/tags
+      const labels = conv.labels || conv.tags || [];
+
+      return {
+        id: conv.id || conv.conversation_id || Math.random().toString(36),
+        title: conv.title || 'Untitled',
+        create_time: create_time ? new Date(create_time).toISOString() : null,
+        update_time: update_time ? new Date(update_time).toISOString() : null,
+        model: model,
+        gpt: gpt,
+        message_count: messages.length,
+        hasImages: hasImages,
+        folder_id: folder_id,
+        folder_name: folder_name,
+        pinned: conv.is_pinned || conv.pinned || false,
+        archived: conv.archived || conv.is_archived || false,
+        labels: labels,
+        country: conv.country || null,
+        messages: messages,
+        __raw: conv
+      };
+    }
+
+    async function parseConversationsJSON(jsonData, foldersData = null) {
+      let rawConversations = [];
+
+      // Detect shape
+      if (Array.isArray(jsonData)) {
+        rawConversations = jsonData;
+      } else if (jsonData.conversations && Array.isArray(jsonData.conversations)) {
+        rawConversations = jsonData.conversations;
+      } else if (jsonData.items && Array.isArray(jsonData.items)) {
+        rawConversations = jsonData.items;
+      } else {
+        throw new Error('Unrecognized JSON format. Expected array or object with "conversations" or "items" key.');
+      }
+
+      // Normalize in chunks to avoid blocking
+      const normalized = [];
+      const chunkSize = 50;
+
+      for (let i = 0; i < rawConversations.length; i += chunkSize) {
+        const chunk = rawConversations.slice(i, i + chunkSize);
+        for (const conv of chunk) {
+          normalized.push(normalizeConversation(conv, foldersData));
+        }
+        // Yield to avoid blocking
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+
+      return normalized;
+    }
+
+    // ============================================================================
+    // FILTERING LOGIC
+    // ============================================================================
+
+    function compileSearchPattern(pattern, isRegex) {
+      if (!pattern) return null;
+
+      if (isRegex) {
+        try {
+          return new RegExp(pattern, 'i');
+        } catch (e) {
+          // Fall back to substring
+          return pattern.toLowerCase();
+        }
+      }
+      return pattern.toLowerCase();
+    }
+
+    function matchesPattern(text, pattern) {
+      if (!pattern || !text) return true;
+
+      if (pattern instanceof RegExp) {
+        return pattern.test(text);
+      }
+      return text.toLowerCase().includes(pattern);
+    }
+
+    function matchesTimeWindow(timestamp, fromTime, toTime) {
+      if (!timestamp || (!fromTime && !toTime)) return true;
+
+      const date = new Date(timestamp);
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      const timeInMinutes = hours * 60 + minutes;
+
+      const parseTime = (timeStr) => {
+        if (!timeStr) return null;
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+      };
+
+      const from = parseTime(fromTime);
+      const to = parseTime(toTime);
+
+      if (from === null && to === null) return true;
+      if (from === null) return timeInMinutes <= to;
+      if (to === null) return timeInMinutes >= from;
+
+      // Handle wraparound (e.g., 22:00-02:00)
+      if (from > to) {
+        return timeInMinutes >= from || timeInMinutes <= to;
+      }
+
+      return timeInMinutes >= from && timeInMinutes <= to;
+    }
+
+    function matchesDayOfWeek(timestamp, selectedDays) {
+      if (!timestamp || selectedDays.length === 0) return true;
+      const date = new Date(timestamp);
+      return selectedDays.includes(date.getDay());
+    }
+
+    function searchInObject(obj, keyPattern, valuePattern) {
+      if (!obj || typeof obj !== 'object') return false;
+
+      for (const [key, value] of Object.entries(obj)) {
+        // Match key
+        if (keyPattern && !matchesPattern(key, keyPattern)) {
+          // Check nested
+          if (typeof value === 'object') {
+            if (searchInObject(value, keyPattern, valuePattern)) return true;
+          }
+          continue;
+        }
+
+        // Match value
+        if (valuePattern) {
+          const valStr = typeof value === 'object' ? JSON.stringify(value) : String(value);
+          if (matchesPattern(valStr, valuePattern)) return true;
+        }
+
+        // Recurse
+        if (typeof value === 'object') {
+          if (searchInObject(value, keyPattern, valuePattern)) return true;
+        }
+      }
+
+      return false;
+    }
+
+    function filterConversations(conversations, filters) {
+      return conversations.filter(conv => {
+        // Text search in messages
+        if (filters.textSearch) {
+          const pattern = compileSearchPattern(filters.textSearch, filters.useRegex);
+          const matchingMessages = conv.messages.filter(msg => {
+            if (filters.roleFilter !== 'any' && msg.role !== filters.roleFilter) {
+              return false;
+            }
+            return matchesPattern(msg.text, pattern);
+          });
+          if (matchingMessages.length === 0) return false;
+        } else if (filters.roleFilter !== 'any') {
+          // No text search but role filter
+          const matchingMessages = conv.messages.filter(msg => msg.role === filters.roleFilter);
+          if (matchingMessages.length === 0) return false;
+        }
+
+        // Title filter
+        if (filters.titleContains && !conv.title.toLowerCase().includes(filters.titleContains.toLowerCase())) {
+          return false;
+        }
+
+        // Date range
+        if (filters.dateFrom || filters.dateTo) {
+          const checkTimestamp = filters.useMessageTimestamps
+            ? (conv.messages.length > 0 ? conv.messages[0].create_time : null)
+            : (conv.create_time ? new Date(conv.create_time).getTime() : null);
+
+          if (!checkTimestamp) return false;
+
+          if (filters.dateFrom) {
+            const fromDate = new Date(filters.dateFrom).getTime();
+            if (checkTimestamp < fromDate) return false;
+          }
+
+          if (filters.dateTo) {
+            const toDate = new Date(filters.dateTo).getTime() + 24 * 60 * 60 * 1000 - 1; // End of day
+            if (checkTimestamp > toDate) return false;
+          }
+        }
+
+        // Time window
+        if (filters.timeFrom || filters.timeTo) {
+          const timestamps = filters.useMessageTimestamps
+            ? conv.messages.map(m => m.create_time).filter(Boolean)
+            : [conv.create_time, conv.update_time].filter(Boolean).map(t => new Date(t).getTime());
+
+          if (timestamps.length === 0) return false;
+
+          const anyMatch = timestamps.some(ts => matchesTimeWindow(ts, filters.timeFrom, filters.timeTo));
+          if (!anyMatch) return false;
+        }
+
+        // Day of week
+        if (filters.daysOfWeek.length > 0) {
+          const timestamps = filters.useMessageTimestamps
+            ? conv.messages.map(m => m.create_time).filter(Boolean)
+            : [conv.create_time, conv.update_time].filter(Boolean).map(t => new Date(t).getTime());
+
+          if (timestamps.length === 0) return false;
+
+          const anyMatch = timestamps.some(ts => matchesDayOfWeek(ts, filters.daysOfWeek));
+          if (!anyMatch) return false;
+        }
+
+        // Folder/label
+        if (filters.folderContains) {
+          const searchStr = filters.folderContains.toLowerCase();
+          const matchFolder = conv.folder_name?.toLowerCase().includes(searchStr);
+          const matchFolderId = conv.folder_id?.toLowerCase().includes(searchStr);
+          const matchLabels = conv.labels.some(label => label.toLowerCase().includes(searchStr));
+          if (!matchFolder && !matchFolderId && !matchLabels) return false;
+        }
+
+        // Model
+        if (filters.modelContains) {
+          const searchStr = filters.modelContains.toLowerCase();
+          const matchConvModel = conv.model?.toLowerCase().includes(searchStr);
+          const matchMsgModel = conv.messages.some(m => m.model?.toLowerCase().includes(searchStr));
+          if (!matchConvModel && !matchMsgModel) return false;
+        }
+
+        // GPT
+        if (filters.gptContains) {
+          const searchStr = filters.gptContains.toLowerCase();
+          if (!conv.gpt?.toLowerCase().includes(searchStr)) return false;
+        }
+
+        // Has media
+        if (filters.hasMedia !== 'any') {
+          const expectMedia = filters.hasMedia === 'yes';
+          if (conv.hasImages !== expectMedia) return false;
+        }
+
+        // Min message count
+        if (filters.minMessages > 0 && conv.message_count < filters.minMessages) {
+          return false;
+        }
+
+        // Pinned
+        if (filters.pinned !== 'any') {
+          const expectPinned = filters.pinned === 'yes';
+          if (conv.pinned !== expectPinned) return false;
+        }
+
+        // Archived
+        if (filters.archived !== 'any') {
+          const expectArchived = filters.archived === 'yes';
+          if (conv.archived !== expectArchived) return false;
+        }
+
+        // Metadata key/value regex
+        if (filters.metadataKey || filters.metadataValue) {
+          const keyPattern = compileSearchPattern(filters.metadataKey, true);
+          const valuePattern = compileSearchPattern(filters.metadataValue, true);
+          if (!searchInObject(conv.__raw, keyPattern, valuePattern)) return false;
+        }
+
+        return true;
+      });
+    }
+
+    // ============================================================================
+    // EXPORT FUNCTIONS
+    // ============================================================================
+
+    function getTodayDateStr() {
+      const now = new Date();
+      return now.toISOString().split('T')[0];
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    async function exportJSON(conversations) {
+      const data = {
+        conversations: conversations.map(c => c.__raw)
+      };
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      downloadBlob(blob, `conversations.filtered.${getTodayDateStr()}.json`);
+    }
+
+    async function exportZIP(conversations) {
+      const zip = new JSZip();
+      const data = {
+        conversations: conversations.map(c => c.__raw)
+      };
+      const json = JSON.stringify(data, null, 2);
+      zip.file('conversations.json', json);
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      downloadBlob(blob, `chatgpt-export.filtered.${getTodayDateStr()}.zip`);
+    }
+
+    async function exportJSONL(conversations) {
+      const lines = conversations.map(conv => {
+        const simplified = {
+          title: conv.title,
+          create_time: conv.create_time,
+          update_time: conv.update_time,
+          model: conv.model,
+          gpt: conv.gpt,
+          messages: conv.messages.map(m => ({
+            role: m.role,
+            content: m.text,
+            model: m.model
+          }))
+        };
+        return JSON.stringify(simplified);
+      });
+
+      const jsonl = lines.join('\n');
+      const blob = new Blob([jsonl], { type: 'application/jsonl' });
+      downloadBlob(blob, `conversations.filtered.${getTodayDateStr()}.jsonl`);
+    }
+
+    // ============================================================================
+    // COMPONENTS
+    // ============================================================================
+
+    function FileUpload({ onLoad, onError }) {
+      const fileInputRef = useRef(null);
+      const [loading, setLoading] = useState(false);
+
+      const handleFileSelect = async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setLoading(true);
+        try {
+          if (file.name.endsWith('.zip')) {
+            // Parse ZIP
+            const zip = new JSZip();
+            const zipData = await zip.loadAsync(file);
+
+            // Extract conversations.json
+            const conversationsFile = zipData.file('conversations.json');
+            if (!conversationsFile) {
+              throw new Error('conversations.json not found in ZIP');
+            }
+
+            const conversationsText = await conversationsFile.async('text');
+            const conversationsData = JSON.parse(conversationsText);
+
+            // Extract folders.json if present
+            let foldersData = null;
+            const foldersFile = zipData.file('folders.json');
+            if (foldersFile) {
+              const foldersText = await foldersFile.async('text');
+              foldersData = JSON.parse(foldersText);
+            }
+
+            const normalized = await parseConversationsJSON(conversationsData, foldersData);
+            onLoad(normalized, foldersData);
+          } else {
+            // Parse JSON directly
+            const text = await file.text();
+            const data = JSON.parse(text);
+            const normalized = await parseConversationsJSON(data);
+            onLoad(normalized, null);
+          }
+        } catch (err) {
+          onError(err.message);
+        } finally {
+          setLoading(false);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+        }
+      };
+
+      return (
+        <div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,.zip"
+            onChange={handleFileSelect}
+            style={{ display: 'none' }}
+            id="file-upload"
+          />
+          <label htmlFor="file-upload" className="btn btn-primary" style={{ cursor: 'pointer' }}>
+            {loading ? (
+              <>
+                <span className="spinner" style={{ marginRight: '0.5rem' }}></span>
+                Loading...
+              </>
+            ) : (
+              'Open Export'
+            )}
+          </label>
+        </div>
+      );
+    }
+
+    function Toggle({ checked, onChange, label }) {
+      return (
+        <div className="toggle-wrapper">
+          <div
+            className={`toggle ${checked ? 'active' : ''}`}
+            onClick={() => onChange(!checked)}
+            role="switch"
+            aria-checked={checked}
+            tabIndex={0}
+            onKeyPress={(e) => e.key === 'Enter' && onChange(!checked)}
+          >
+            <div className="toggle-thumb"></div>
+          </div>
+          {label && <span className="text-sm">{label}</span>}
+        </div>
+      );
+    }
+
+    function FilterPanel({ filters, onFilterChange, foldersData }) {
+      const [expanded, setExpanded] = useState(true);
+
+      const folderSuggestions = useMemo(() => {
+        if (!foldersData?.folders) return [];
+        return foldersData.folders.map(f => f.name);
+      }, [foldersData]);
+
+      const toggleDay = (day) => {
+        const days = filters.daysOfWeek.includes(day)
+          ? filters.daysOfWeek.filter(d => d !== day)
+          : [...filters.daysOfWeek, day];
+        onFilterChange({ daysOfWeek: days });
+      };
+
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+      return (
+        <div className="filter-panel">
+          <div className="filter-header" onClick={() => setExpanded(!expanded)}>
+            <h3 className="font-semibold">Filters</h3>
+            <span>{expanded ? '▼' : '▶'}</span>
+          </div>
+          {expanded && (
+            <div className="filter-content">
+              <div className="form-group">
+                <label>Text Search</label>
+                <input
+                  type="search"
+                  value={filters.textSearch}
+                  onChange={(e) => onFilterChange({ textSearch: e.target.value })}
+                  placeholder="Search in messages..."
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+                <Toggle
+                  checked={filters.useRegex}
+                  onChange={(v) => onFilterChange({ useRegex: v })}
+                  label="Use RegExp"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Role Filter</label>
+                <select value={filters.roleFilter} onChange={(e) => onFilterChange({ roleFilter: e.target.value })}>
+                  <option value="any">Any</option>
+                  <option value="user">User</option>
+                  <option value="assistant">Assistant</option>
+                  <option value="system">System</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Title Contains</label>
+                <input
+                  type="search"
+                  value={filters.titleContains}
+                  onChange={(e) => onFilterChange({ titleContains: e.target.value })}
+                  placeholder="Search titles..."
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Date From</label>
+                <input
+                  type="date"
+                  value={filters.dateFrom}
+                  onChange={(e) => onFilterChange({ dateFrom: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Date To</label>
+                <input
+                  type="date"
+                  value={filters.dateTo}
+                  onChange={(e) => onFilterChange({ dateTo: e.target.value })}
+                />
+              </div>
+
+              <Toggle
+                checked={filters.useMessageTimestamps}
+                onChange={(v) => onFilterChange({ useMessageTimestamps: v })}
+                label="Use message timestamps"
+              />
+
+              <div className="form-group mt-4">
+                <label>Time Window From</label>
+                <input
+                  type="time"
+                  value={filters.timeFrom}
+                  onChange={(e) => onFilterChange({ timeFrom: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Time Window To</label>
+                <input
+                  type="time"
+                  value={filters.timeTo}
+                  onChange={(e) => onFilterChange({ timeTo: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Days of Week</label>
+                <div className="day-chips">
+                  {dayNames.map((day, idx) => (
+                    <button
+                      key={idx}
+                      className={`day-chip ${filters.daysOfWeek.includes(idx) ? 'active' : ''}`}
+                      onClick={() => toggleDay(idx)}
+                    >
+                      {day}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Folder/Label Contains</label>
+                <input
+                  type="search"
+                  list="folder-suggestions"
+                  value={filters.folderContains}
+                  onChange={(e) => onFilterChange({ folderContains: e.target.value })}
+                  placeholder="Search folders/labels..."
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+                {folderSuggestions.length > 0 && (
+                  <datalist id="folder-suggestions">
+                    {folderSuggestions.map((name, idx) => (
+                      <option key={idx} value={name} />
+                    ))}
+                  </datalist>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label>Model Contains</label>
+                <input
+                  type="search"
+                  value={filters.modelContains}
+                  onChange={(e) => onFilterChange({ modelContains: e.target.value })}
+                  placeholder="e.g., gpt-4"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Custom GPT Contains</label>
+                <input
+                  type="search"
+                  value={filters.gptContains}
+                  onChange={(e) => onFilterChange({ gptContains: e.target.value })}
+                  placeholder="GPT name..."
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Has Media</label>
+                <select value={filters.hasMedia} onChange={(e) => onFilterChange({ hasMedia: e.target.value })}>
+                  <option value="any">Any</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Min Messages</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={filters.minMessages}
+                  onChange={(e) => onFilterChange({ minMessages: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Pinned</label>
+                <select value={filters.pinned} onChange={(e) => onFilterChange({ pinned: e.target.value })}>
+                  <option value="any">Any</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Archived</label>
+                <select value={filters.archived} onChange={(e) => onFilterChange({ archived: e.target.value })}>
+                  <option value="any">Any</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Metadata Key Regex</label>
+                <input
+                  type="search"
+                  value={filters.metadataKey}
+                  onChange={(e) => onFilterChange({ metadataKey: e.target.value })}
+                  placeholder="e.g., ^metadata\\..*"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Metadata Value Regex</label>
+                <input
+                  type="search"
+                  value={filters.metadataValue}
+                  onChange={(e) => onFilterChange({ metadataValue: e.target.value })}
+                  placeholder="e.g., Phoenix"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function ConversationPreview({ conversation, onClose }) {
+      const modalRef = useRef(null);
+
+      useEffect(() => {
+        const handleKeyDown = (e) => {
+          if (e.key === 'Escape') onClose();
+        };
+        document.addEventListener('keydown', handleKeyDown);
+
+        // Focus trap
+        if (modalRef.current) {
+          modalRef.current.focus();
+        }
+
+        return () => document.removeEventListener('keydown', handleKeyDown);
+      }, [onClose]);
+
+      return (
+        <div className="modal-overlay" onClick={onClose}>
+          <div
+            ref={modalRef}
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+            tabIndex={-1}
+          >
+            <div className="modal-header">
+              <h2 id="modal-title" className="font-semibold">{conversation.title}</h2>
+              <button className="btn btn-sm btn-secondary" onClick={onClose}>
+                Close
+              </button>
+            </div>
+            <div className="modal-body">
+              {conversation.messages.map((msg) => (
+                <div key={msg.id} className={`message message-${msg.role}`}>
+                  <div className="message-role">{msg.role}</div>
+                  <div className="message-bubble">
+                    {msg.text || '(no text)'}
+                    {msg.has_media && <div className="text-xs text-secondary mt-2">[Contains media]</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function ResultsList({ conversations, selected, onToggleSelect, onToggleAll, onPreview }) {
+      const [visibleCount, setVisibleCount] = useState(50);
+      const containerRef = useRef(null);
+
+      useEffect(() => {
+        setVisibleCount(50);
+      }, [conversations]);
+
+      useEffect(() => {
+        const handleScroll = () => {
+          if (!containerRef.current) return;
+          const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+          if (scrollTop + clientHeight >= scrollHeight - 100) {
+            setVisibleCount(prev => Math.min(prev + 50, conversations.length));
+          }
+        };
+
+        const container = containerRef.current;
+        if (container) {
+          container.addEventListener('scroll', handleScroll);
+          return () => container.removeEventListener('scroll', handleScroll);
+        }
+      }, [conversations.length]);
+
+      const visibleConversations = conversations.slice(0, visibleCount);
+
+      const allSelected = conversations.length > 0 && conversations.every(c => selected.has(c.id));
+      const someSelected = conversations.some(c => selected.has(c.id));
+
+      return (
+        <div className="results-list" style={{ display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}>
+          <div className="p-4" style={{ borderBottom: '1px solid var(--border)' }}>
+            <div className="flex gap-2 flex-wrap">
+              <button className="btn btn-sm btn-secondary" onClick={() => onToggleAll(true)}>
+                Select All
+              </button>
+              <button className="btn btn-sm btn-secondary" onClick={() => onToggleAll(false)}>
+                Select None
+              </button>
+              <button
+                className="btn btn-sm btn-secondary"
+                onClick={() => {
+                  const newSelected = new Set(selected);
+                  conversations.forEach(c => {
+                    if (newSelected.has(c.id)) {
+                      newSelected.delete(c.id);
+                    } else {
+                      newSelected.add(c.id);
+                    }
+                  });
+                  onToggleSelect(newSelected);
+                }}
+              >
+                Toggle (Current Filter)
+              </button>
+            </div>
+            <div className="text-sm text-secondary mt-2">
+              Showing {visibleConversations.length} of {conversations.length} | Selected: {selected.size}
+            </div>
+          </div>
+          <div ref={containerRef} style={{ flex: 1, overflow: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            {visibleConversations.map((conv) => (
+              <div key={conv.id} className="result-item">
+                <label className="checkbox-wrapper">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(conv.id)}
+                    onChange={() => {
+                      const newSelected = new Set(selected);
+                      if (newSelected.has(conv.id)) {
+                        newSelected.delete(conv.id);
+                      } else {
+                        newSelected.add(conv.id);
+                      }
+                      onToggleSelect(newSelected);
+                    }}
+                  />
+                </label>
+                <div className="result-content">
+                  <div className="result-title">{conv.title}</div>
+                  <div className="result-meta">
+                    <span>{conv.message_count} msgs</span>
+                    {conv.model && <span className="badge">{conv.model}</span>}
+                    {conv.gpt && <span className="badge badge-primary">{conv.gpt}</span>}
+                    {conv.hasImages && <span className="badge badge-success">📷</span>}
+                    {conv.folder_name && <span className="badge">{conv.folder_name}</span>}
+                    {conv.pinned && <span className="badge badge-warning">📌</span>}
+                    {conv.archived && <span className="badge">📦</span>}
+                    {conv.create_time && (
+                      <span className="text-xs">
+                        {new Date(conv.create_time).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button className="btn btn-sm btn-secondary" onClick={() => onPreview(conv)}>
+                  Preview
+                </button>
+              </div>
+            ))}
+            {visibleCount < conversations.length && (
+              <div className="p-4 text-center text-secondary">
+                Loading more...
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function ExportCard({ conversations, selected }) {
+      const selectedConversations = conversations.filter(c => selected.has(c.id));
+
+      return (
+        <div className="card export-card">
+          <h3 className="font-semibold mb-4">Export</h3>
+          <div className="mb-4">
+            <div className="text-sm text-secondary">
+              {selectedConversations.length} conversation{selectedConversations.length !== 1 ? 's' : ''} selected
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <button
+              className="btn btn-primary"
+              onClick={() => exportJSON(selectedConversations)}
+              disabled={selectedConversations.length === 0}
+            >
+              Export JSON
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => exportZIP(selectedConversations)}
+              disabled={selectedConversations.length === 0}
+            >
+              Export ZIP
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => exportJSONL(selectedConversations)}
+              disabled={selectedConversations.length === 0}
+            >
+              Export JSONL
+            </button>
+          </div>
+          <div className="info-banner mt-4">
+            <strong>Note:</strong> ChatGPT doesn't currently re-create sidebar threads from imports. This export mirrors the official conversations.json format.
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [conversations, setConversations] = useState([]);
+      const [foldersData, setFoldersData] = useState(null);
+      const [selected, setSelected] = useState(new Set());
+      const [preview, setPreview] = useState(null);
+      const [error, setError] = useState(null);
+
+      const [filters, setFilters] = useState({
+        textSearch: '',
+        useRegex: false,
+        roleFilter: 'any',
+        titleContains: '',
+        dateFrom: '',
+        dateTo: '',
+        useMessageTimestamps: false,
+        timeFrom: '',
+        timeTo: '',
+        daysOfWeek: [],
+        folderContains: '',
+        modelContains: '',
+        gptContains: '',
+        hasMedia: 'any',
+        minMessages: 0,
+        pinned: 'any',
+        archived: 'any',
+        metadataKey: '',
+        metadataValue: ''
+      });
+
+      const handleFilterChange = (updates) => {
+        setFilters(prev => ({ ...prev, ...updates }));
+      };
+
+      const handleLoad = (data, folders) => {
+        setConversations(data);
+        setFoldersData(folders);
+        setSelected(new Set());
+        setError(null);
+      };
+
+      const handleError = (msg) => {
+        setError(msg);
+      };
+
+      const handleReset = () => {
+        setConversations([]);
+        setFoldersData(null);
+        setSelected(new Set());
+        setFilters({
+          textSearch: '',
+          useRegex: false,
+          roleFilter: 'any',
+          titleContains: '',
+          dateFrom: '',
+          dateTo: '',
+          useMessageTimestamps: false,
+          timeFrom: '',
+          timeTo: '',
+          daysOfWeek: [],
+          folderContains: '',
+          modelContains: '',
+          gptContains: '',
+          hasMedia: 'any',
+          minMessages: 0,
+          pinned: 'any',
+          archived: 'any',
+          metadataKey: '',
+          metadataValue: ''
+        });
+        setError(null);
+      };
+
+      const handleRunTests = async () => {
+        try {
+          const normalized = await parseConversationsJSON(TEST_CONVERSATIONS, TEST_FOLDERS);
+          setConversations(normalized);
+          setFoldersData(TEST_FOLDERS);
+          setError(null);
+
+          // Run assertions
+          const results = [];
+
+          // Test 1: Substring "world" finds A
+          handleFilterChange({ textSearch: 'world', useRegex: false });
+          await new Promise(resolve => setTimeout(resolve, 100));
+          const test1 = filterConversations(normalized, { ...filters, textSearch: 'world', useRegex: false });
+          results.push({
+            name: 'Substring "world"',
+            pass: test1.length === 1 && test1[0].id === 'A',
+            expected: 'A',
+            got: test1.map(c => c.id).join(', ')
+          });
+
+          // Test 2: Regex hel+o\s+world finds A
+          const test2 = filterConversations(normalized, { ...filters, textSearch: 'hel+o\\s+world', useRegex: true });
+          results.push({
+            name: 'Regex hel+o\\s+world',
+            pass: test2.length === 1 && test2[0].id === 'A',
+            expected: 'A',
+            got: test2.map(c => c.id).join(', ')
+          });
+
+          // Test 3: Has media → finds C
+          const test3 = filterConversations(normalized, { ...filters, hasMedia: 'yes' });
+          results.push({
+            name: 'Has media',
+            pass: test3.length === 1 && test3[0].id === 'C',
+            expected: 'C',
+            got: test3.map(c => c.id).join(', ')
+          });
+
+          // Test 4: Folder "Work" → C
+          const test4 = filterConversations(normalized, { ...filters, folderContains: 'Work' });
+          results.push({
+            name: 'Folder "Work"',
+            pass: test4.length === 1 && test4[0].id === 'C',
+            expected: 'C',
+            got: test4.map(c => c.id).join(', ')
+          });
+
+          // Test 5: Metadata key/value
+          const test5 = filterConversations(normalized, { ...filters, metadataKey: '^metadata\\.project$', metadataValue: 'Phoenix' });
+          results.push({
+            name: 'Metadata project=Phoenix',
+            pass: test5.length === 1 && test5[0].id === 'B',
+            expected: 'B',
+            got: test5.map(c => c.id).join(', ')
+          });
+
+          const allPass = results.every(r => r.pass);
+          const summary = results.map(r => `${r.pass ? '✓' : '✗'} ${r.name}: expected ${r.expected}, got ${r.got}`).join('\n');
+          alert(`Tests ${allPass ? 'PASSED' : 'FAILED'}:\n\n${summary}`);
+
+        } catch (err) {
+          handleError('Test error: ' + err.message);
+        }
+      };
+
+      const filtered = useMemo(() => {
+        return filterConversations(conversations, filters);
+      }, [conversations, filters]);
+
+      const handleToggleAll = (selectAll) => {
+        if (selectAll) {
+          setSelected(new Set(filtered.map(c => c.id)));
+        } else {
+          setSelected(new Set());
+        }
+      };
+
+      const selectedConversations = conversations.filter(c => selected.has(c.id));
+
+      return (
+        <div className="app">
+          <header className="header">
+            <div className="container flex items-center justify-between gap-4">
+              <h1 className="text-lg font-semibold">ChatGPT Export Filter</h1>
+              <div className="flex gap-2">
+                <FileUpload onLoad={handleLoad} onError={handleError} />
+                <button className="btn btn-secondary" onClick={handleReset}>
+                  Reset
+                </button>
+                <button className="btn btn-secondary" onClick={handleRunTests}>
+                  Run Tests
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <main className="main">
+            <div className="container">
+              {error && (
+                <div className="error-banner" role="status">
+                  <strong>Error:</strong> {error}
+                </div>
+              )}
+
+              {conversations.length === 0 ? (
+                <div className="p-4 text-center text-secondary">
+                  <p>Open a ChatGPT export ZIP or conversations.json to get started.</p>
+                  <p className="text-sm mt-2">Click "Run Tests" to load sample data.</p>
+                </div>
+              ) : (
+                <div className="content-grid">
+                  <FilterPanel
+                    filters={filters}
+                    onFilterChange={handleFilterChange}
+                    foldersData={foldersData}
+                  />
+                  <ResultsList
+                    conversations={filtered}
+                    selected={selected}
+                    onToggleSelect={setSelected}
+                    onToggleAll={handleToggleAll}
+                    onPreview={setPreview}
+                  />
+                  <ExportCard conversations={conversations} selected={selected} />
+                </div>
+              )}
+            </div>
+          </main>
+
+          {conversations.length > 0 && (
+            <div className="bottom-bar">
+              <div className="flex-1 text-sm font-medium">
+                {selected.size} selected
+              </div>
+              <button
+                className="btn btn-sm btn-primary"
+                onClick={() => exportJSON(selectedConversations)}
+                disabled={selected.size === 0}
+              >
+                JSON
+              </button>
+              <button
+                className="btn btn-sm btn-primary"
+                onClick={() => exportZIP(selectedConversations)}
+                disabled={selected.size === 0}
+              >
+                ZIP
+              </button>
+              <button
+                className="btn btn-sm btn-secondary"
+                onClick={() => exportJSONL(selectedConversations)}
+                disabled={selected.size === 0}
+              >
+                JSONL
+              </button>
+            </div>
+          )}
+
+          {preview && (
+            <ConversationPreview conversation={preview} onClose={() => setPreview(null)} />
+          )}
+        </div>
+      );
+    }
+
+    // Render
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
